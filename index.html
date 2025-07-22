@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>SmartFundAd – Home</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: linear-gradient(135deg, #0f0f0f, #1a1a1a);
+      color: #fff;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .glass-box {
+      background: rgba(255, 255, 255, 0.05);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 20px;
+      padding: 40px 30px;
+      max-width: 90%;
+      width: 400px;
+      text-align: center;
+      box-shadow: 0 0 20px rgba(255, 0, 0, 0.3);
+    }
+
+    h1 {
+      font-size: 2em;
+      margin-bottom: 20px;
+      color: #ff4444;
+    }
+
+    p {
+      font-size: 1em;
+      margin-bottom: 30px;
+      color: #ddd;
+    }
+
+    a.button {
+      display: inline-block;
+      padding: 12px 25px;
+      background: linear-gradient(135deg, #ff0000, #ff9900);
+      color: #fff;
+      text-decoration: none;
+      border-radius: 30px;
+      font-weight: bold;
+      box-shadow: 0 4px 15px rgba(255, 0, 0, 0.5);
+      transition: 0.3s ease;
+    }
+
+    a.button:hover {
+      transform: scale(1.05);
+      box-shadow: 0 6px 20px rgba(255, 0, 0, 0.7);
+    }
+
+    footer {
+      margin-top: 40px;
+      font-size: 0.9em;
+      color: #666;
+    }
+
+    @media (max-width: 500px) {
+      .glass-box {
+        padding: 30px 20px;
+        width: 90%;
+      }
+      h1 {
+        font-size: 1.5em;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="glass-box">
+    <h1>Welcome to SmartFundAd</h1>
+    <p>Start earning daily by watching ads, doing tasks, and more!</p>
+
+    <!-- 🔗 Link to another page -->
+    <a href="admindashword.html" class="button">Enter Now</a>
+  </div>
+
+  <footer>
+    &copy; 2025 SmartFundAd. All rights reserved.
+  </footer>
+
+  <!-- Optional external JS file -->
+  <script src="main.js"></script>
+
+</body>
+</html>

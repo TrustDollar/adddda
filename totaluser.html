@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>All Users – Admin View</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    * { box-sizing: border-box; }
+
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      margin: 0;
+      padding: 0;
+      background: #0a0a0a;
+      color: #fff;
+    }
+
+    header {
+      background: linear-gradient(90deg, #cc0000, #660000);
+      color: gold;
+      padding: 15px 20px;
+      font-size: 24px;
+      font-weight: bold;
+      text-align: center;
+      text-shadow: 0 0 10px gold;
+      box-shadow: 0 0 10px #ff000044;
+    }
+
+    .search-box {
+      padding: 15px 20px;
+      background: #111;
+    }
+
+    .search-box input {
+      width: 100%;
+      max-width: 400px;
+      padding: 10px 15px;
+      font-size: 16px;
+      border: none;
+      border-radius: 6px;
+      outline: none;
+      background: #222;
+      color: #fff;
+      border: 1px solid #444;
+    }
+
+    .table-container {
+      overflow-x: auto;
+      padding: 20px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+    }
+
+    th, td {
+      padding: 12px;
+      border: 1px solid #444;
+      text-align: left;
+      white-space: nowrap;
+    }
+
+    th {
+      background: #330000;
+      color: gold;
+      font-weight: bold;
+    }
+
+    tr:nth-child(even) {
+      background: #1a1a1a;
+    }
+
+    tr:hover {
+      background: #2a2a2a;
+    }
+
+    @media (max-width: 768px) {
+      table {
+        font-size: 13px;
+      }
+      th, td {
+        padding: 8px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+ 
+
+  <div class="search-box">
+    <input type="text" id="searchInput" placeholder="🔍 Search by name or email...">
+  </div>
+
+  <div class="table-container">
+    <table>
+      <thead>
+        <tr>
+          <th>Username</th>
+          <th>Email</th>
+          <th>Wallet Address</th>
+          <th>Total Deposit</th>
+          <th>Total Withdrawal</th>
+          <th>Total Referral</th>
+        </tr>
+      </thead>
+      <tbody id="userTable"></tbody>
+    </table>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
+    import {
+      getFirestore, collection, getDocs, query, where
+    } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyAswnjTVT4I_vrIShF4PDMluvWWcIwygTA",
+      authDomain: "trustdollar-f72f4.firebaseapp.com",
+      projectId: "trustdollar-f72f4",
+      storageBucket: "trustdollar-f72f4.appspot.com",
+      messagingSenderId: "217643658538",
+      appId: "1:217643658538:web:c8a9cd78467e0818aa0253"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    let allUserRows = []; // For filtering
+
+    onAuthStateChanged(auth, async (user) => {
+      if (!user) return window.location.href = "auth.html";
+
+      const userSnap = await getDocs(collection(db, "users"));
+      const allUsers = userSnap.docs.map(doc => ({ uid: doc.id, ...doc.data() }));
+      const table = document.getElementById("userTable");
+
+      for (const user of allUsers) {
+        const [depSnap, witSnap, refSnap] = await Promise.all([
+          getDocs(query(collection(db, "deposits"), where("uid", "==", user.uid), where("status", "==", "success"))),
+          getDocs(query(collection(db, "withdrawals"), where("uid", "==", user.uid), where("status", "==", "success"))),
+          getDocs(query(collection(db, "referral_income"), where("toUpline", "==", user.uid))),
+        ]);
+
+        const totalDeposit = depSnap.docs.reduce((sum, d) => sum + (d.data().amount || 0), 0);
+        const totalWithdraw = witSnap.docs.reduce((sum, d) => sum + (d.data().amount || 0), 0);
+        const totalReferral = refSnap.docs.reduce((sum, d) => sum + (d.data().amount || 0), 0);
+
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${user.username || "-"}</td>
+          <td>${user.email || "-"}</td>
+          <td>${user.walletAddress || "-"}</td>
+          <td>$${totalDeposit.toFixed(2)}</td>
+          <td>$${totalWithdraw.toFixed(2)}</td>
+          <td>$${totalReferral.toFixed(2)}</td>
+        `;
+        table.appendChild(tr);
+        allUserRows.push({ row: tr, username: (user.username || "").toLowerCase(), email: (user.email || "").toLowerCase() });
+      }
+    });
+
+    // 🔍 Search Filter
+    document.getElementById("searchInput").addEventListener("input", function () {
+      const val = this.value.toLowerCase();
+      allUserRows.forEach(({ row, username, email }) => {
+        row.style.display = (username.includes(val) || email.includes(val)) ? "" : "none";
+      });
+    });
+  </script>
+
+</body>
+</html>

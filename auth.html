@@ -1,0 +1,343 @@
+ <!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>TrustDollar – Auth</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', sans-serif;
+      background: linear-gradient(145deg, #0a0a0a, #1f1f1f);
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+      padding: 20px;
+      position: relative;
+      overflow-x: hidden;
+    }
+
+    /* Back Button */
+    .back-btn {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      padding: 10px 20px;
+      border: 2px solid #00ffff;
+      background: rgba(0,0,0,0.3);
+      color: white;
+      border-radius: 10px;
+      font-size: 16px;
+      cursor: pointer;
+      box-shadow: 0 0 10px #00ffff;
+    }
+
+    .container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 30px;
+      max-width: 1000px;
+      width: 100%;
+      justify-content: center;
+      margin-top: 100px;
+    }
+
+    .card {
+      flex: 1 1 340px;
+      background: rgba(255, 255, 255, 0.05);
+      padding: 30px;
+      border-radius: 20px;
+      border: 1px solid #00ffff55;
+      box-shadow: 0 0 15px #00ffff55;
+      backdrop-filter: blur(10px);
+      position: relative;
+      transition: all 0.3s ease;
+    }
+
+    .card h2 {
+      text-align: center;
+      color: #fff;
+      margin-bottom: 20px;
+      font-size: 24px;
+    }
+
+    input {
+      width: 100%;
+      padding: 12px;
+      margin: 10px 0;
+      border-radius: 10px;
+      border: none;
+      background: #111;
+      color: #00ffff;
+      font-size: 15px;
+    }
+
+    button {
+      width: 100%;
+      padding: 12px;
+      border: none;
+      border-radius: 10px;
+      margin-top: 15px;
+      cursor: pointer;
+      font-size: 16px;
+      font-weight: bold;
+      background: linear-gradient(to right, #ffcc00, #ff6600);
+      color: #000;
+      box-shadow: 0 0 10px #ff9900aa;
+    }
+
+    button:hover {
+      opacity: 0.9;
+    }
+
+    .switch {
+      text-align: center;
+      margin-top: 20px;
+      font-size: 14px;
+      color: #aaa;
+    }
+
+    .switch a {
+      color: #00ffff;
+      text-decoration: none;
+      font-weight: bold;
+      cursor: pointer;
+      transition: 0.3s;
+    }
+
+    .switch a:hover {
+      text-shadow: 0 0 6px #00ffff;
+    }
+
+    .forgot-link {
+      color: #00ffff;
+      font-size: 13px;
+      text-decoration: none;
+      float: right;
+      margin-top: -10px;
+      display: block;
+    }
+
+    .forgot-link:hover {
+      text-shadow: 0 0 5px #00ffff;
+    }
+
+    .toast {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: #00ff99dd;
+      color: #000;
+      padding: 16px 30px;
+      border-radius: 14px;
+      font-weight: bold;
+      font-size: 16px;
+      box-shadow: 0 0 20px #00ff99;
+      display: none;
+      animation: fade 3s ease forwards;
+      text-align: center;
+      z-index: 9999;
+    }
+
+    @keyframes fade {
+      0% {opacity: 0; transform: translate(-50%, -60%);}
+      10% {opacity: 1; transform: translate(-50%, -50%);}
+      90% {opacity: 1;}
+      100% {opacity: 0; transform: translate(-50%, -50%);}
+    }
+  </style>
+</head>
+<body>
+
+
+
+<div class="container">
+  <!-- LOGIN CARD -->
+  <div class="card" id="loginCard">
+    <h2>Log In</h2>
+    <input type="email" id="loginEmail" placeholder="Email" />
+    <input type="password" id="loginPassword" placeholder="Password" />
+    <a href="#" id="forgotPasswordLink" class="forgot-link">🔒 Forgot Password?</a>
+    <button id="loginBtn">Log In</button>
+    <div class="switch">Don't have an account? <a id="switchToRegister">Register</a></div>
+  </div>
+
+  <!-- REGISTER CARD -->
+  <div class="card" id="registerCard" style="display:none;">
+    <h2>Register</h2>
+    <input type="text" id="regUsername" placeholder="Username" />
+    <input type="email" id="regEmail" placeholder="Email" />
+    <input type="password" id="regPassword" placeholder="Password" />
+    <input type="password" id="regConfirmPassword" placeholder="Confirm Password" />
+    <input type="text" id="regReferral" placeholder="Referral Code (optional)" />
+    <button id="registerBtn">Register</button>
+    <div class="switch">Already have an account? <a id="switchToLogin">Login</a></div>
+  </div>
+</div>
+
+<div id="toast" class="toast">Welcome!</div>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js";
+  import {
+    getAuth,
+    createUserWithEmailAndPassword,
+    signInWithEmailAndPassword,
+    sendPasswordResetEmail
+  } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-auth.js";
+  import {
+    getFirestore,
+    doc,
+    setDoc,
+    serverTimestamp,
+  } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyAswnjTVT4I_vrIShF4PDMluvWWcIwygTA",
+    authDomain: "trustdollar-f72f4.firebaseapp.com",
+    projectId: "trustdollar-f72f4",
+    storageBucket: "trustdollar-f72f4.appspot.com",
+    messagingSenderId: "217643658538",
+    appId: "1:217643658538:web:c8a9cd78467e0818aa0253",
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getFirestore(app);
+
+  function showToast(message) {
+    const toast = document.getElementById("toast");
+    toast.innerText = message;
+    toast.style.display = "block";
+    setTimeout(() => {
+      toast.style.display = "none";
+    }, 2000);
+  }
+
+  function generateRefCode(length = 8) {
+    const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+    let code = "";
+    for (let i = 0; i < length; i++) {
+      code += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return code;
+  }
+
+  async function register() {
+    const email = document.getElementById("regEmail").value.trim();
+    const password = document.getElementById("regPassword").value;
+    const confirmPassword = document.getElementById("regConfirmPassword").value;
+    const username = document.getElementById("regUsername").value.trim();
+    const referredBy = document.getElementById("regReferral").value.trim().toUpperCase() || null;
+
+    if (!username || !email || !password || !confirmPassword) {
+      showToast("All required fields!");
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      showToast("Passwords not match!");
+      return;
+    }
+
+    try {
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      const uid = userCredential.user.uid;
+      const refCode = generateRefCode(8);
+      const userID = generateRefCode(7);
+
+      await setDoc(doc(db, "users", uid), {
+        username,
+        email,
+        userID,
+        refCode,
+        referredBy,
+        wallet: 0,
+        createdAt: serverTimestamp(),
+      });
+
+      showToast("Registration successful!");
+      setTimeout(() => (window.location.href = "index.html"), 1000);
+    } catch (err) {
+      if (err.code === "auth/email-already-in-use") {
+        showToast("Email already registered!");
+      } else if (err.code === "auth/invalid-email") {
+        showToast("Please enter a valid email!");
+      } else if (err.code === "auth/weak-password") {
+        showToast("Minimum 6 characters");
+      } else {
+        showToast("Registration failed");
+      }
+    }
+  }
+
+  async function login() {
+    const email = document.getElementById("loginEmail").value;
+    const password = document.getElementById("loginPassword").value;
+
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
+      showToast("Login successful!");
+      setTimeout(() => (window.location.href = "index.html"), 1000);
+    } catch (err) {
+      showToast("Please enter correct login details!");
+    }
+  }
+
+  async function forgotPassword() {
+    const email = document.getElementById("loginEmail").value.trim();
+    if (!email) {
+      showToast("Enter your email first");
+      return;
+    }
+
+    try {
+      await sendPasswordResetEmail(auth, email);
+      showToast("Reset link sent to your email!");
+    } catch (err) {
+      showToast("Failed to send reset link");
+    }
+  }
+         document.getElementById("loginBtn").addEventListener("click", login);
+  document.getElementById("registerBtn").addEventListener("click", register);
+  document.getElementById("forgotPasswordLink").addEventListener("click", forgotPassword);
+
+  // Switch toggle
+  document.getElementById("switchToRegister").addEventListener("click", () => {
+    document.getElementById("loginCard").style.display = "none";
+    document.getElementById("registerCard").style.display = "block";
+  });
+
+  document.getElementById("switchToLogin").addEventListener("click", () => {
+    document.getElementById("registerCard").style.display = "none";
+    document.getElementById("loginCard").style.display = "block";
+  });
+
+  // ✅ Referral Code Auto-fill from URL
+  window.addEventListener("DOMContentLoaded", () => {
+    const params = new URLSearchParams(window.location.search);
+    const ref = params.get("ref");
+
+    if (ref) {
+      const referralInput = document.getElementById("regReferral");
+      const loginCard = document.getElementById("loginCard");
+      const registerCard = document.getElementById("registerCard");
+
+      if (referralInput && loginCard && registerCard) {
+        referralInput.value = ref.toUpperCase();
+        loginCard.style.display = "none";
+        registerCard.style.display = "block";
+      }
+    }
+  });
+
+</script>
+</body>
+</html>

@@ -1,0 +1,299 @@
+ <!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Admin Panel – TrustDollar</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background-color: #111;
+      color: white;
+      margin: 0;
+      padding: 0;
+    }
+
+    h2 {
+      color: #ffd700;
+      text-align: center;
+      padding: 20px;
+      margin: 0;
+      background-color: #1a1a1a;
+      box-shadow: 0 2px 8px rgba(255, 0, 0, 0.3);
+    }
+
+    .search-bar {
+      text-align: center;
+      margin: 20px;
+    }
+
+    .search-bar input {
+      padding: 10px;
+      border-radius: 6px;
+      border: none;
+      width: 250px;
+      max-width: 90%;
+    }
+
+    .container {
+      display: flex;
+      gap: 20px;
+      padding: 20px;
+      align-items: flex-start;
+      flex-wrap: wrap;
+    }
+
+    .section {
+      flex: 1;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 15px;
+    }
+
+    .divider {
+      width: 3px;
+      background: linear-gradient(to bottom, #ff0000, #ff6600);
+      border-radius: 4px;
+      box-shadow: 0 0 10px #ff5555;
+    }
+
+    .box {
+      background-color: #1e1e1e;
+      border: 2px solid #ff0000;
+      box-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+      border-radius: 10px;
+      padding: 10px 14px;
+      font-size: 14px;
+    }
+
+    .row {
+      margin: 6px 0;
+    }
+
+    .pending {
+      background-color: #ffaa00;
+      color: black;
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+
+    button {
+      margin-top: 8px;
+      padding: 6px 10px;
+      background: #ffd700;
+      border: none;
+      color: black;
+      font-weight: bold;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+
+    #popup {
+      position: fixed;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      background: #222;
+      color: #fff;
+      padding: 20px 30px;
+      border-radius: 10px;
+      display: none;
+      z-index: 999;
+      box-shadow: 0 0 20px #ffd700;
+      font-weight: bold;
+    }
+
+    @media (max-width: 768px) {
+      .container {
+        flex-direction: column;
+      }
+      .divider {
+        display: none;
+      }
+    }
+  </style>
+</head>
+<body>
+
+<h2>Admin Panel</h2>
+
+<div class="search-bar">
+  <input type="text" id="searchInput" placeholder="🔍 Search by email, UID or username">
+</div>
+
+<div class="container">
+  <div class="section" id="depositSection"></div>
+  <div class="divider"></div>
+  <div class="section" id="withdrawSection"></div>
+</div>
+
+<div id="popup">✅ Action Done!</div>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js";
+  import {
+    getFirestore, collection, query, orderBy, doc,
+    getDoc, updateDoc, addDoc, deleteDoc,
+    onSnapshot, serverTimestamp, where, getDocs
+  } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js";
+  import {
+    getAuth, onAuthStateChanged
+  } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-auth.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyAswnjTVT4I_vrIShF4PDMluvWWcIwygTA",
+    authDomain: "trustdollar-f72f4.firebaseapp.com",
+    projectId: "trustdollar-f72f4",
+    storageBucket: "trustdollar-f72f4.appspot.com",
+    messagingSenderId: "217643658538",
+    appId: "1:217643658538:web:c8a9cd78467e0818aa0253"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+  const auth = getAuth(app);
+
+  const depositSection = document.getElementById("depositSection");
+  const withdrawSection = document.getElementById("withdrawSection");
+  const popup = document.getElementById("popup");
+  const searchInput = document.getElementById("searchInput");
+
+  let allDepositCards = [];
+  let allWithdrawCards = [];
+
+  onAuthStateChanged(auth, async (user) => {
+    if (!user || user.uid !== "eVqCzYAF8eS1cATJbcNCLQKW1ip1") {
+      alert("Access Denied");
+      location.href = "auth.html";
+      return;
+    }
+
+    const depQuery = query(collection(db, "deposits"), orderBy("timestamp", "desc"));
+    const witQuery = query(collection(db, "withdrawals"), orderBy("timestamp", "desc"));
+
+    onSnapshot(depQuery, async (snap) => {
+      depositSection.innerHTML = "";
+      allDepositCards = [];
+
+      for (const docSnap of snap.docs) {
+        const d = docSnap.data();
+        if (d.status === "success") continue;
+
+        const userDoc = await getDoc(doc(db, "users", d.uid));
+        const u = userDoc.exists() ? userDoc.data() : {};
+
+        const div = document.createElement("div");
+        div.className = "box";
+        div.innerHTML = `
+          <div class="row"><b>📅 Deposit</b></div>
+          <div class="row"><b>Order ID:</b> ${docSnap.id}</div>
+          <div class="row"><b>User:</b> ${u.username || "N/A"}</div>
+          <div class="row"><b>Email:</b> ${d.email}</div>
+          <div class="row"><b>UID:</b> ${d.uid}</div>
+          <div class="row"><b>Amount:</b> $${d.amount}</div>
+          <div class="row"><b>Status:</b> <span class="pending">${d.status}</span></div>
+          <button onclick="approveDeposit('${docSnap.id}', ${d.amount}, '${d.uid}')">Approve</button>
+        `;
+        depositSection.appendChild(div);
+        allDepositCards.push({ element: div, data: `${u.username} ${d.email} ${d.uid}`.toLowerCase() });
+      }
+    });
+
+    onSnapshot(witQuery, async (snap) => {
+      withdrawSection.innerHTML = "";
+      allWithdrawCards = [];
+
+      for (const docSnap of snap.docs) {
+        const d = docSnap.data();
+        if (d.status === "success") continue;
+
+        const userDoc = await getDoc(doc(db, "users", d.uid));
+        const u = userDoc.exists() ? userDoc.data() : {};
+
+        const div = document.createElement("div");
+        div.className = "box";
+        div.innerHTML = `
+          <div class="row"><b>📤 Withdrawal</b></div>
+          <div class="row"><b>Order ID:</b> ${docSnap.id}</div>
+          <div class="row"><b>User:</b> ${u.username || "N/A"}</div>
+          <div class="row"><b>Email:</b> ${d.email}</div>
+          <div class="row"><b>UID:</b> ${d.uid}</div>
+          <div class="row"><b>Amount:</b> $${d.amount}</div>
+          <div class="row"><b>Wallet:</b> ${d.walletAddress || "N/A"}</div>
+          <div class="row"><b>Status:</b> <span class="pending">${d.status}</span></div>
+          <button onclick="approveWithdrawal('${docSnap.id}')">Approve</button>
+        `;
+        withdrawSection.appendChild(div);
+        allWithdrawCards.push({ element: div, data: `${u.username} ${d.email} ${d.uid}`.toLowerCase() });
+      }
+    });
+  });
+
+  window.approveDeposit = async (depositId, amount, uid) => {
+    const userRef = doc(db, "users", uid);
+    const depositRef = doc(db, "deposits", depositId);
+    const depositSnap = await getDoc(depositRef);
+    const userSnap = await getDoc(userRef);
+    if (!userSnap.exists()) return alert("User not found");
+
+    const userData = userSnap.data();
+    const wallet = userData.wallet || 0;
+
+    await updateDoc(userRef, { wallet: wallet + amount });
+    await updateDoc(depositRef, { status: "success" });
+
+    // ✅ Referral Bonus Logic
+    const pendingQuery = query(
+      collection(db, "referral_pending"),
+      where("depositId", "==", depositId)
+    );
+    const pendingSnap = await getDocs(pendingQuery);
+
+    if (!pendingSnap.empty) {
+      const docRef = pendingSnap.docs[0];
+      const data = docRef.data();
+      const uplineId = data.upline;
+      const bonusAmount = amount * 0.2;
+
+      const uplineRef = doc(db, "users", uplineId);
+      const uplineSnap = await getDoc(uplineRef);
+      if (uplineSnap.exists()) {
+        const uplineData = uplineSnap.data();
+        const currentUplineWallet = uplineData.wallet || 0;
+        await updateDoc(uplineRef, {
+          wallet: currentUplineWallet + bonusAmount
+        });
+      }
+
+      await addDoc(collection(db, "referral_income"), {
+        uid: data.upline,
+        downline: data.downline,
+        depositId: data.depositId,
+        amount: bonusAmount,
+        timestamp: serverTimestamp(),
+        status: "earned"
+      });
+
+      await deleteDoc(doc(db, "referral_pending", docRef.id));
+    }
+
+    popup.innerText = "✅ Deposit Approved!";
+    popup.style.display = "block";
+    setTimeout(() => popup.style.display = "none", 2000);
+  };
+
+  window.approveWithdrawal = async (withdrawalId) => {
+    const witRef = doc(db, "withdrawals", withdrawalId);
+    await updateDoc(witRef, { status: "success" });
+    popup.innerText = "✅ Withdrawal Approved!";
+    popup.style.display = "block";
+    setTimeout(() => popup.style.display = "none", 2000);
+  };
+
+  searchInput.addEventListener("input", () => {
+    const val = searchInput.value.toLowerCase();
+    allDepositCards.forEach(c => c.element.style.display = c.data.includes(val) ? "block" : "none");
+    allWithdrawCards.forEach(c => c.element.style.display = c.data.includes(val) ? "block" : "none");
+  });
+</script>
+</body>
+</html>
