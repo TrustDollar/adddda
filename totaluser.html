@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+  <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -76,6 +76,20 @@
       background: #2a2a2a;
     }
 
+    .editable {
+      cursor: pointer;
+      color: gold;
+    }
+
+    .editable input {
+      width: 80px;
+      padding: 4px;
+      background: #222;
+      color: white;
+      border: 1px solid #444;
+      border-radius: 4px;
+    }
+
     @media (max-width: 768px) {
       table {
         font-size: 13px;
@@ -88,7 +102,7 @@
 </head>
 <body>
 
- 
+  <header>All Users – Admin Panel</header>
 
   <div class="search-box">
     <input type="text" id="searchInput" placeholder="🔍 Search by name or email...">
@@ -100,7 +114,7 @@
         <tr>
           <th>Username</th>
           <th>Email</th>
-          <th>Wallet Address</th>
+          <th>Wallet Balance</th>
           <th>Total Deposit</th>
           <th>Total Withdrawal</th>
           <th>Total Referral</th>
@@ -111,67 +125,83 @@
   </div>
 
   <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
-    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
-    import {
-      getFirestore, collection, getDocs, query, where
-    } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+  import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
+  import { getFirestore, collection, getDocs, query, where, doc, updateDoc } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
 
-    const firebaseConfig = {
-      apiKey: "AIzaSyAswnjTVT4I_vrIShF4PDMluvWWcIwygTA",
-      authDomain: "trustdollar-f72f4.firebaseapp.com",
-      projectId: "trustdollar-f72f4",
-      storageBucket: "trustdollar-f72f4.appspot.com",
-      messagingSenderId: "217643658538",
-      appId: "1:217643658538:web:c8a9cd78467e0818aa0253"
-    };
+  const firebaseConfig = {
+    apiKey: "AIzaSyAswnjTVT4I_vrIShF4PDMluvWWcIwygTA",
+    authDomain: "trustdollar-f72f4.firebaseapp.com",
+    projectId: "trustdollar-f72f4",
+    storageBucket: "trustdollar-f72f4.appspot.com",
+    messagingSenderId: "217643658538",
+    appId: "1:217643658538:web:c8a9cd78467e0818aa0253"
+  };
 
-    const app = initializeApp(firebaseConfig);
-    const auth = getAuth(app);
-    const db = getFirestore(app);
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getFirestore(app);
 
-    let allUserRows = []; // For filtering
+  let allUserRows = [];
 
-    onAuthStateChanged(auth, async (user) => {
-      if (!user) return window.location.href = "auth.html";
+  onAuthStateChanged(auth, async (user) => {
+    if (!user) return window.location.href = "auth.html";
 
-      const userSnap = await getDocs(collection(db, "users"));
-      const allUsers = userSnap.docs.map(doc => ({ uid: doc.id, ...doc.data() }));
-      const table = document.getElementById("userTable");
+    const userSnap = await getDocs(collection(db, "users"));
+    const allUsers = userSnap.docs.map(docSnap => ({ uid: docSnap.id, ...docSnap.data() }));
+    const table = document.getElementById("userTable");
 
-      for (const user of allUsers) {
-        const [depSnap, witSnap, refSnap] = await Promise.all([
-          getDocs(query(collection(db, "deposits"), where("uid", "==", user.uid), where("status", "==", "success"))),
-          getDocs(query(collection(db, "withdrawals"), where("uid", "==", user.uid), where("status", "==", "success"))),
-          getDocs(query(collection(db, "referral_income"), where("toUpline", "==", user.uid))),
-        ]);
+    for (const u of allUsers) {
+      const [depSnap, witSnap, refSnap] = await Promise.all([
+        getDocs(query(collection(db, "deposits"), where("uid", "==", u.uid), where("status", "==", "success"))),
+        getDocs(query(collection(db, "withdrawals"), where("uid", "==", u.uid), where("status", "==", "success"))),
+        getDocs(query(collection(db, "referral_income"), where("toUpline", "==", u.uid))),
+      ]);
 
-        const totalDeposit = depSnap.docs.reduce((sum, d) => sum + (d.data().amount || 0), 0);
-        const totalWithdraw = witSnap.docs.reduce((sum, d) => sum + (d.data().amount || 0), 0);
-        const totalReferral = refSnap.docs.reduce((sum, d) => sum + (d.data().amount || 0), 0);
+      const totalDeposit = depSnap.docs.reduce((sum, d) => sum + (d.data().amount || 0), 0);
+      const totalWithdraw = witSnap.docs.reduce((sum, d) => sum + (d.data().amount || 0), 0);
+      const totalReferral = refSnap.docs.reduce((sum, d) => sum + (d.data().amount || 0), 0);
+      const walletBalance = u.wallet || 0;
 
-        const tr = document.createElement("tr");
-        tr.innerHTML = `
-          <td>${user.username || "-"}</td>
-          <td>${user.email || "-"}</td>
-          <td>${user.walletAddress || "-"}</td>
-          <td>$${totalDeposit.toFixed(2)}</td>
-          <td>$${totalWithdraw.toFixed(2)}</td>
-          <td>$${totalReferral.toFixed(2)}</td>
-        `;
-        table.appendChild(tr);
-        allUserRows.push({ row: tr, username: (user.username || "").toLowerCase(), email: (user.email || "").toLowerCase() });
-      }
-    });
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${u.username || "-"}</td>
+        <td>${u.email || "-"}</td>
+        <td>${u.walletAddress || "-"}</td>
+        <td class="editable" data-uid="${u.uid}">$${walletBalance.toFixed(2)}</td>
+        <td>$${totalDeposit.toFixed(2)}</td>
+        <td>$${totalWithdraw.toFixed(2)}</td>
+        <td>$${totalReferral.toFixed(2)}</td>
+      `;
+      table.appendChild(tr);
+      allUserRows.push({ row: tr, username: (u.username || "").toLowerCase(), email: (u.email || "").toLowerCase() });
+    }
 
-    // 🔍 Search Filter
-    document.getElementById("searchInput").addEventListener("input", function () {
-      const val = this.value.toLowerCase();
-      allUserRows.forEach(({ row, username, email }) => {
-        row.style.display = (username.includes(val) || email.includes(val)) ? "" : "none";
+    // Wallet Edit Feature
+    document.querySelectorAll(".editable").forEach(cell => {
+      cell.addEventListener("click", function () {
+        const uid = this.dataset.uid;
+        const currentValue = parseFloat(this.textContent.replace("$", "")) || 0;
+        this.innerHTML = `<input type="number" class="edit-input" value="${currentValue}">`;
+        const input = this.querySelector("input");
+        input.focus();
+        input.addEventListener("blur", async () => {
+          const newValue = parseFloat(input.value) || 0;
+          this.textContent = `$${newValue.toFixed(2)}`;
+          await updateDoc(doc(db, "users", uid), { wallet: newValue });
+        });
       });
     });
-  </script>
+  });
+
+  // Search filter
+  document.getElementById("searchInput").addEventListener("input", function () {
+    const val = this.value.toLowerCase();
+    allUserRows.forEach(({ row, username, email }) => {
+      row.style.display = (username.includes(val) || email.includes(val)) ? "" : "none";
+    });
+  });
+</script>
 
 </body>
 </html>
