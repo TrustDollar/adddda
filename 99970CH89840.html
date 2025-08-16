@@ -1,4 +1,4 @@
- <!DOCTYPE html>
+   <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -112,6 +112,7 @@
     }
   </style>
 </head>
+
 <body>
 
 <h2>Admin Panel</h2>
@@ -170,33 +171,47 @@
     const depQuery = query(collection(db, "deposits"), orderBy("timestamp", "desc"));
     const witQuery = query(collection(db, "withdrawals"), orderBy("timestamp", "desc"));
 
-    onSnapshot(depQuery, async (snap) => {
-      depositSection.innerHTML = "";
-      allDepositCards = [];
+     onSnapshot(depQuery, async (snap) => {
+  depositSection.innerHTML = "";
+  allDepositCards = [];
 
-      for (const docSnap of snap.docs) {
-        const d = docSnap.data();
-        if (d.status === "success") continue;
+  const now = Date.now(); // current time in ms
 
-        const userDoc = await getDoc(doc(db, "users", d.uid));
-        const u = userDoc.exists() ? userDoc.data() : {};
+  for (const docSnap of snap.docs) {
+    const d = docSnap.data();
 
-        const div = document.createElement("div");
-        div.className = "box";
-        div.innerHTML = `
-          <div class="row"><b>📅 Deposit</b></div>
-          <div class="row"><b>Order ID:</b> ${docSnap.id}</div>
-          <div class="row"><b>User:</b> ${u.username || "N/A"}</div>
-          <div class="row"><b>Email:</b> ${d.email}</div>
-          <div class="row"><b>UID:</b> ${d.uid}</div>
-          <div class="row"><b>Amount:</b> $${d.amount}</div>
-          <div class="row"><b>Status:</b> <span class="pending">${d.status}</span></div>
-          <button onclick="approveDeposit('${docSnap.id}', ${d.amount}, '${d.uid}')">Approve</button>
-        `;
-        depositSection.appendChild(div);
-        allDepositCards.push({ element: div, data: `${u.username} ${d.email} ${d.uid}`.toLowerCase() });
+    // ✅ Auto reject if pending > 10 minutes
+    if (d.status === "pending" && d.timestamp?.toMillis) {
+      const depositTime = d.timestamp.toMillis();
+      const diffMinutes = (now - depositTime) / (1000 * 60);
+      if (diffMinutes > 10) {
+        await updateDoc(doc(db, "deposits", docSnap.id), { status: "rejected" });
+        continue; // skip showing it
       }
-    });
+    }
+
+    if (d.status === "success") continue;
+
+    const userDoc = await getDoc(doc(db, "users", d.uid));
+    const u = userDoc.exists() ? userDoc.data() : {};
+
+    const div = document.createElement("div");
+    div.className = "box";
+    div.innerHTML = `
+      <div class="row"><b>📅 Deposit</b></div>
+      <div class="row"><b>Order ID:</b> ${docSnap.id}</div>
+      <div class="row"><b>User:</b> ${u.username || "N/A"}</div>
+      <div class="row"><b>Email:</b> ${d.email}</div>
+      <div class="row"><b>UID:</b> ${d.uid}</div>
+      <div class="row"><b>Amount:</b> $${d.amount}</div>
+      <div class="row"><b>Status:</b> <span class="pending">${d.status}</span></div>
+      <button onclick="approveDeposit('${docSnap.id}', ${d.amount}, '${d.uid}')">Approve</button>
+    `;
+    depositSection.appendChild(div);
+    allDepositCards.push({ element: div, data: `${u.username} ${d.email} ${d.uid}`.toLowerCase() });
+  }
+});
+
 
     onSnapshot(witQuery, async (snap) => {
       withdrawSection.innerHTML = "";
@@ -294,6 +309,24 @@
     allDepositCards.forEach(c => c.element.style.display = c.data.includes(val) ? "block" : "none");
     allWithdrawCards.forEach(c => c.element.style.display = c.data.includes(val) ? "block" : "none");
   });
+
+  // ✅ Hide all rejected deposit & withdrawal boxes after they are loaded
+function hideRejectedBoxes() {
+  document.querySelectorAll(".box").forEach(box => {
+    const statusText = box.innerText.toLowerCase();
+    if (statusText.includes("rejected")) {
+      box.style.display = "none";
+    }
+  });
+}
+
+// Run every time DOM changes (to catch new items from Firestore)
+const observer = new MutationObserver(hideRejectedBoxes);
+observer.observe(document.body, { childList: true, subtree: true });
+
+// Also run once at start
+hideRejectedBoxes();
+
 </script>
 </body>
 </html>
